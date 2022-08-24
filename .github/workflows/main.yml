@@ -1,36 +1,53 @@
-# This is a basic workflow to help you get started with Actions
+# 工作流程名称
+name: Docker Image CI
 
-name: CI
-
-# Controls when the workflow will run
+# 触发条件
 on:
-  # Triggers the workflow on push or pull request events but only for the "main" branch
+  # 在推送或合并请求时触发工作流，仅针对“main”分支
   push:
     branches: [ "main" ]
-  pull_request:
-    branches: [ "main" ]
+  #pull_request:
+    #branches: [ "main" ]
 
-  # Allows you to run this workflow manually from the Actions tab
-  workflow_dispatch:
-
-# A workflow run is made up of one or more jobs that can run sequentially or in parallel
+# 工作流运行由一个或多个作业组成，这些作业可以顺序运行或并行运行
 jobs:
-  # This workflow contains a single job called "build"
+  # 此工作流包含一个名为“构建”的作业,作业在ubuntu运行器
   build:
-    # The type of runner that the job will run on
     runs-on: ubuntu-latest
 
-    # Steps represent a sequence of tasks that will be executed as part of the job
+    # 作业包含一系列任务，称为steps
     steps:
-      # Checks-out your repository under $GITHUB_WORKSPACE, so your job can access it
-      - uses: actions/checkout@v3
+      # 检出当前代码（触发工作流时的commits）
+      - name: checkout
+        uses: actions/checkout@v3
 
-      # Runs a single command using the runners shell
-      - name: Run a one-line script
-        run: echo Hello, world!
+      # setup-qemu 如果您想使用 QEMU 添加仿真支持以便能够针对更多平台进行构建，则 action 会很有用
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v2
 
-      # Runs a set of commands using the runners shell
-      - name: Run a multi-line script
-        run: |
-          echo Add other actions to build,
-          echo test, and deploy your project.
+      # setup-buildxaction 将默认使用docker-container 构建器驱动程序创建和引导构建器
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v2
+
+      # 登录到阿里云容器镜像服务
+      - name: Login to Ali Docker
+        uses: aliyun/acr-login@v1
+                
+      # 配置登录信息，secrets 变量在 github settings -> secrets 中设置
+        with:
+          login-server: https://registry.cn-hangzhou.aliyuncs.com
+          username: "${{ secrets.ACR_USERNAME }}"
+          password: "${{ secrets.ACR_PASSWORD }}"
+        
+      # 构建镜像并上传到阿里云容器镜像仓库
+      - name: Build and push
+        uses: docker/build-push-action@v3
+        with:
+          context: .
+          push: true
+          tags: registry-vpc.cn-hangzhou.aliyuncs.com/lwenwu/images:v1
+        #env:
+          #IMAGE_TAG: ${{ github.sha }}
+        #run: |
+          #docker build -t registry.cn-hangzhou.aliyuncs.com/lwenwu/images:$IMAGE_TAG .
+          #docker push registry.cn-hangzhou.aliyuncs.com/lwemwu/images:$IMAGE_TAG
